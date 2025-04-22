@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# === Dynamisches MOTD für Teletraan-Hosts ===
+
+HOSTNAME=$(hostname)
+DISTRO=$(lsb_release -d | cut -f2)
+KERNEL=$(uname -r)
+IP_ADDR=$(hostname -I | awk '{print $1}')
+UPTIME=$(uptime -p)
+LOAD=$(uptime | awk -F'load average:' '{ print $2 }')
+CPU_TEMP=$(vcgencmd measure_temp 2>/dev/null | cut -d"=" -f2 || echo "N/A")
+MEMORY=$(free -h | awk '/Mem:/ {print $3 " / " $2}')
+LAST_UPDATE=$(grep "upgrade " /var/log/apt/history.log | tail -1 | awk '{print $1, $2}')
+DOCKER_CONTAINERS=$(docker ps -q | wc -l)
+DESCRIPTION_FILE="/etc/motd_description.txt"
+
+echo "========================================"
+echo "        WELCOME TO $HOSTNAME 🛰️"
+echo " $DISTRO | Kernel $KERNEL"
+echo "----------------------------------------"
+echo " IP Address   : $IP_ADDR"
+echo " Uptime       : $UPTIME"
+echo " Load Average : $LOAD"
+echo " CPU Temp     : $CPU_TEMP"
+echo " RAM Usage    : $MEMORY"
+echo " Docker       : $DOCKER_CONTAINERS containers running"
+echo " Last Update  : $LAST_UPDATE"
+echo "----------------------------------------"
+if [ -f "$DESCRIPTION_FILE" ]; then
+    cat "$DESCRIPTION_FILE"
+else
+    echo "Keine Systembeschreibung vorhanden."
+fi
+echo "----------------------------------------"
+echo " Stay safe. Stay updated. Autobots, roll out!"
+echo "========================================"
