@@ -1,0 +1,3 @@
+Rolle        : Beispielrolle
+Standort     : Beispielort
+Besonderes   : Beispielhafte Dienste
