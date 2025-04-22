@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# === Dynamisches MOTD für Teletraan-Hosts ===
+# === Dynamisches MOTD für Hosts ===
 
 HOSTNAME=$(hostname)
 DISTRO=$(lsb_release -d | cut -f2)
