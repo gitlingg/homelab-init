@@ -7,6 +7,6 @@ Dieses Paket richtet ein neues Debian-basiertes System nach HomeLab-Standard ein
 
 ## Verwendung
 ```bash
-git clone https://github.com/DEIN-USER/overseer-install.git
-cd overseer-install
+git clone https://github.com/gitlingg/homelab-init.git
+cd homelab-init
 sudo bash setup.sh
