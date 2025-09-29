@@ -1,0 +1,4 @@
+Host vader
+    HostName vader.local
+    User overseer
+    IdentityFile ~/.ssh/id_ed25519
