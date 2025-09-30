@@ -20,9 +20,27 @@ fi
 
 # --- SSH Defaults zurücksetzen ---
 echo "🔧 Setze SSH Defaults zurück..."
-sed -i 's/^PermitRootLogin.*/#PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
-sed -i 's/^PasswordAuthentication.*/#PasswordAuthentication yes/' /etc/ssh/sshd_config
-systemctl restart sshd
+# Restore SSH defaults (falls man sich ausgesperrt hat)
+
+echo "==> SSH auf Default-Einstellungen zurücksetzen..."
+
+# Root-Login wieder erlauben
+sudo sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+# Passwort-Login wieder erlauben
+sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+sudo sed -i 's/^#*ChallengeResponseAuthentication.*/ChallengeResponseAuthentication yes/' /etc/ssh/sshd_config
+
+# PAM bleibt unverändert
+sudo sed -i 's/^#*UsePAM.*/UsePAM yes/' /etc/ssh/sshd_config
+
+# Dienst neu starten
+sudo systemctl restart ssh
+
+echo "==> SSH ist wieder offen: Root & Passwort-Login erlaubt."
+echo "    Nutze das nur für Notfälle und ändere es danach wieder zurück!"
+
+
 
 # --- overseer User optional löschen ---
 read -p "Soll der Benutzer '$USER_NAME' komplett entfernt werden? (y/N): " CONFIRM
