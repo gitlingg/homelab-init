@@ -23,6 +23,21 @@ chown -R $USER_NAME:$USER_NAME /home/$USER_NAME/.ssh
 chmod 700 /home/$USER_NAME/.ssh
 chmod 600 /home/$USER_NAME/.ssh/authorized_keys
 
+echo "==> SSH absichern..."
+
+# Root-Login verbieten
+sudo sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+
+# Nur Schlüssel-Login erlauben
+sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+sudo sed -i 's/^#*ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config
+
+# Optional: sicherstellen, dass PAM aktiv bleibt
+sudo sed -i 's/^#*UsePAM.*/UsePAM yes/' /etc/ssh/sshd_config
+
+# SSH-Dienst neu starten
+sudo systemctl restart ssh
+
 # --- Sudo Rechte ---
 echo "⚡ Setze Sudo-Rechte..."
 echo "$USER_NAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USER_NAME
