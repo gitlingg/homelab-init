@@ -1,64 +1,83 @@
 #!/bin/bash
-# === overseer setup script (aktualisiert 2025) ===
-
 set -e
 
-echo "🔧 Starte Overseer Setup..."
+### homelab-init ###
+# Initial-Setup für Debian/Ubuntu Systeme
+# User: overseer
+# Erstellt MOTD, Hardening, SSH-Anpassungen
 
-USER_NAME="overseer"
-
-# --- Benutzer anlegen ---
-if id "$USER_NAME" &>/dev/null; then
-    echo "✅ Benutzer '$USER_NAME' existiert bereits."
-else
-    echo "➕ Benutzer '$USER_NAME' wird erstellt..."
-    adduser --disabled-password --gecos "" $USER_NAME
+# --- Vorbereitungen ---
+if [ "$(id -u)" -ne 0 ]; then
+  echo "[ERROR] Dieses Skript muss als root ausgeführt werden."
+  exit 1
 fi
 
-# --- SSH-Keys einrichten ---
-echo "📁 Erstelle SSH-Verzeichnis..."
-mkdir -p /home/$USER_NAME/.ssh
-cp authorized_keys /home/$USER_NAME/.ssh/authorized_keys
-chown -R $USER_NAME:$USER_NAME /home/$USER_NAME/.ssh
-chmod 700 /home/$USER_NAME/.ssh
-chmod 600 /home/$USER_NAME/.ssh/authorized_keys
+echo "[INFO] Update Paketquellen..."
+apt update -y
+apt upgrade -y
 
-echo "==> SSH absichern..."
+# --- sudo sicherstellen ---
+if ! command -v sudo >/dev/null 2>&1; then
+  echo "[INFO] sudo wird installiert..."
+  apt install -y sudo
+fi
 
-# Root-Login verbieten
-sudo sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+# --- User overseer ---
+if id "overseer" &>/dev/null; then
+  echo "[INFO] Benutzer overseer existiert bereits."
+else
+  echo "[INFO] Erstelle Benutzer overseer..."
+  adduser --disabled-password --gecos "" overseer
+  echo "overseer ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/overseer
+fi
 
-# Nur Schlüssel-Login erlauben
-sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-sudo sed -i 's/^#*ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config
+# overseer in sudo-Gruppe aufnehmen
+if id -nG overseer | grep -qw sudo; then
+  echo "[INFO] overseer ist bereits in der sudo-Gruppe."
+else
+  usermod -aG sudo overseer
+  echo "[INFO] overseer zur sudo-Gruppe hinzugefügt."
+fi
 
-# Optional: sicherstellen, dass PAM aktiv bleibt
-sudo sed -i 's/^#*UsePAM.*/UsePAM yes/' /etc/ssh/sshd_config
+# --- SSH Hardening ---
+echo "[INFO] Passe SSH-Konfiguration an..."
+SSHD_CONFIG="/etc/ssh/sshd_config"
 
-# SSH-Dienst neu starten
-sudo systemctl restart ssh
+# Backup erstellen
+if [ ! -f "${SSHD_CONFIG}.bak" ]; then
+  cp "$SSHD_CONFIG" "${SSHD_CONFIG}.bak"
+fi
 
-# --- Sudo Rechte ---
-echo "⚡ Setze Sudo-Rechte..."
-echo "$USER_NAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USER_NAME
-chmod 440 /etc/sudoers.d/$USER_NAME
+# Basis-Hardening
+sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' $SSHD_CONFIG
+sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' $SSHD_CONFIG
+sed -i 's/^#*PermitEmptyPasswords.*/PermitEmptyPasswords no/' $SSHD_CONFIG
 
-# --- Basis-Pakete installieren ---
-echo "📦 Installiere Basis-Pakete..."
-apt update
-apt install -y vim htop curl git net-tools nfs-common lsb-release jq
+# SSH neu starten (kompatibel für Ubuntu/Debian)
+if systemctl list-unit-files | grep -q '^ssh\.service'; then
+  systemctl restart ssh
+elif systemctl list-unit-files | grep -q '^sshd\.service'; then
+  systemctl restart sshd
+else
+  echo "[WARN] Kein SSH-Dienst gefunden – bitte manuell prüfen."
+fi
 
-# --- MOTD Setup ---
-echo "🖼️ Installiere Login-Banner..."
-cp fallout_motd.txt /etc/motd
-# modern: eigenes Skript für dynamische Infos
-cp 00-overseer.sh /etc/update-motd.d/00-overseer
-chmod +x /etc/update-motd.d/00-overseer
+# --- MOTD ---
+echo "[INFO] Richte dynamisches MOTD ein..."
+MOTD_SCRIPT="/etc/update-motd.d/10-homelab"
 
-# --- SSH absichern ---
-echo "🔒 Sichere SSH..."
-sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
-sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-systemctl restart sshd
+cat > "$MOTD_SCRIPT" <<'EOF'
+#!/bin/bash
+echo "----------------------------------"
+echo " Hostname: $(hostname)"
+echo " OS:       $(lsb_release -ds 2>/dev/null || cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2 | tr -d '"')"
+echo " Kernel:   $(uname -r)"
+echo " Uptime:   $(uptime -p)"
+echo " IP:       $(hostname -I | awk '{print $1}')"
+echo "----------------------------------"
+EOF
 
-echo "✅ Setup abgeschlossen! Du kannst dich nun als '$USER_NAME' per SSH anmelden."
+chmod +x "$MOTD_SCRIPT"
+
+# --- Fertig ---
+echo "[INFO] Setup abgeschlossen. Bitte einmal mit overseer einloggen."
